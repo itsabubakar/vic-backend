@@ -25,10 +25,11 @@ app.use(
     saveUninitialized: true,
   })
 );
+const PORT = process.env.PORT || 3000;
 
 const languageUrl = "https://api.languagetoolplus.com/v2/check";
 
-app.listen(3000, () => {
+app.listen(PORT, () => {
   console.log("running on port...");
 });
 
