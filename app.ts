@@ -4,6 +4,7 @@ import axios from "axios";
 import session from "express-session";
 import * as dotenv from "dotenv";
 import marked from "marked";
+import cors from "cors";
 //note
 dotenv.config();
 
@@ -16,6 +17,7 @@ declare module "express-session" {
 const app = express();
 //middleware
 app.use(morgan("dev"));
+app.use(cors({ origin: ["http://localhost:8081"], credentials: true }));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(
