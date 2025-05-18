@@ -49,7 +49,7 @@ app.post("/errorCheck", async (req: Request, res: Response) => {
       }
     );
     console.log("response: ", response.data);
-    res.send(response.data.matches);
+    res.json({ errors: response.data.matches, text: text.text });
   } catch (error: any) {
     console.log("Something Went Wrong...\n", error);
     res.status(500).json(error.message);
