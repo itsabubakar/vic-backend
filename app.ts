@@ -72,6 +72,9 @@ app.post("/text", (req: Request, res: Response) => {
     res.status(400).send("text field is required and must be a string");
     return;
   }
+  console.log("Session ID:", req.session.id);
+  console.log("Before:", req.session.notes);
+
   if (!req.session.notes) {
     req.session.notes = [];
   }
@@ -79,10 +82,14 @@ app.post("/text", (req: Request, res: Response) => {
     title: `note ${req.session.notes.length + 1}`,
     body: req.body,
   });
+  console.log("After:", req.session.notes);
   res.status(201).json({ message: "text saved", data: req.body });
 });
 
 app.get("/text", (req: Request, res: Response) => {
+  console.log("GET Session ID:", req.session.id);
+  console.log("GET Notes:", req.session.notes);
+  if (!req.session.notes) req.session.notes = [];
   res.status(200).json({ notes: req.session.notes });
 });
 
