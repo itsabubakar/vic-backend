@@ -45,18 +45,40 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
 // Session configuration
+// Update your CORS configuration
+app.use(
+  cors({
+    origin: [
+      "https://markdownfrontend.netlify.app",
+      "http://localhost:3000", // For local testing
+    ],
+    credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  })
+);
+
+// Update session configuration
 app.use(
   session({
     secret: process.env.SESSIONSECRET!,
     resave: false,
-    saveUninitialized: true,
+    saveUninitialized: false, // Changed for GDPR compliance
     cookie: {
       httpOnly: true,
       secure: true,
       sameSite: "none",
+      maxAge: 24 * 60 * 60 * 1000, // 1 day
+      domain:
+        process.env.NODE_ENV === "production"
+          ? ".onrender.com" // Your Render domain
+          : undefined, // Localhost doesn't need domain
     },
   })
 );
+
+// Add OPTIONS handler for preflight requests
+app.options("*", cors());
 
 // Server startup
 app.listen(PORT, () => {
