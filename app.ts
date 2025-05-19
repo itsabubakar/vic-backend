@@ -1,13 +1,28 @@
-import express, { Request, Response } from "express";
+import express, { NextFunction, Request, Response } from "express";
 import morgan from "morgan";
 import axios from "axios";
 import session from "express-session";
 import * as dotenv from "dotenv";
-import marked from "marked";
+import { marked } from "marked";
 import cors from "cors";
-//note
+
+// 1. First, create a custom type for async handlers
+type AsyncHandler = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => Promise<any>;
+
+// 2. Create a wrapper function to handle async errors
+const asyncHandler =
+  (fn: AsyncHandler) => (req: Request, res: Response, next: NextFunction) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+  };
+
+// Environment setup
 dotenv.config();
 
+// Session type extension
 declare module "express-session" {
   interface SessionData {
     notes: { title: string; body: string }[];
@@ -15,13 +30,21 @@ declare module "express-session" {
 }
 
 const app = express();
-//middleware
+const PORT = process.env.PORT || 3000;
+const languageUrl = "https://api.languagetoolplus.com/v2/check";
+
+// Middleware
 app.use(morgan("dev"));
 app.use(
-  cors({ origin: ["https://markdownfrontend.netlify.app"], credentials: true })
+  cors({
+    origin: ["https://markdownfrontend.netlify.app"],
+    credentials: true,
+  })
 );
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+
+// Session configuration
 app.use(
   session({
     secret: process.env.SESSIONSECRET!,
@@ -31,76 +54,87 @@ app.use(
       httpOnly: true,
       secure: true,
       sameSite: "none",
-      // maxAge, etc, as needed
     },
   })
 );
-const PORT = process.env.PORT || 3000;
 
-const languageUrl = "https://api.languagetoolplus.com/v2/check";
-
+// Server startup
 app.listen(PORT, () => {
-  console.log("running on port...");
+  console.log(`Server running on port ${PORT}`);
 });
 
-app.post("/errorCheck", async (req: Request, res: Response) => {
-  if (typeof req.body !== "object" || typeof req.body.text !== "string") {
-    res.status(400).send("text field is required and must be a string");
-    return;
-  }
-  const text = req.body;
-  try {
+// Error checking endpoint
+app.post(
+  "/errorCheck",
+  asyncHandler(async (req: Request, res: Response) => {
+    if (typeof req.body?.text !== "string") {
+      return res
+        .status(400)
+        .send("text field is required and must be a string");
+    }
+
     const response = await axios.post(
       languageUrl,
-      {
-        text: text.text,
-        language: "en-US",
-      },
+      new URLSearchParams({ text: req.body.text, language: "en-US" }),
       {
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
         },
       }
     );
-    res.json({ errors: response.data.matches, text: text.text });
-  } catch (error: any) {
-    console.log("Something Went Wrong...\n", error);
-    res.status(500).json(error.message);
-  }
-});
+    res.json({ errors: response.data.matches, text: req.body.text });
+  })
+);
 
-app.post("/text", (req: Request, res: Response) => {
-  if (typeof req.body !== "object" || typeof req.body.text !== "string") {
-    res.status(400).send("text field is required and must be a string");
-    return;
-  }
-  console.log("Session ID:", req.session.id);
-  console.log("Before:", req.session.notes);
+// Save text endpoint
+app.post(
+  "/text",
+  asyncHandler(async (req: Request, res: Response) => {
+    if (!req.body || typeof req.body.text !== "string") {
+      return res
+        .status(400)
+        .json({ error: "text field is required and must be a string" });
+    }
 
-  if (!req.session.notes) {
-    req.session.notes = [];
-  }
-  req.session.notes.push({
-    title: `note ${req.session.notes.length + 1}`,
-    body: req.body,
-  });
-  console.log("After:", req.session.notes);
-  res.status(201).json({ message: "text saved", data: req.body });
-});
+    if (!req.session.notes) {
+      req.session.notes = [];
+    }
 
+    req.session.notes.push({
+      title: `Note ${req.session.notes.length + 1}`,
+      body: req.body.text, // Fixed: Store text directly instead of entire body
+    });
+
+    res.status(201).json({ message: "Text saved", data: req.body.text });
+  })
+);
+
+// Get text endpoint
 app.get("/text", (req: Request, res: Response) => {
-  console.log("GET Session ID:", req.session.id);
-  console.log("GET Notes:", req.session.notes);
-  if (!req.session.notes) req.session.notes = [];
-  res.status(200).json({ notes: req.session.notes });
+  res.status(200).json({ notes: req.session.notes || [] });
 });
 
-app.post("/rendered", async (req: Request, res: Response) => {
-  if (typeof req.body !== "object" || typeof req.body.text !== "string") {
-    res.status(400).send("text field is required and must be a string");
-    return;
-  }
-  const data = req.body;
-  const markedData = marked.parse(data.text);
-  res.status(200).send(markedData);
+// Markdown rendering endpoint
+app.post(
+  "/rendered",
+  asyncHandler(async (req: Request, res: Response) => {
+    if (!req.body || typeof req.body.text !== "string") {
+      return res
+        .status(400)
+        .json({ error: "text field is required and must be a string" });
+    }
+
+    try {
+      const markedData = marked.parse(req.body.text);
+      res.status(200).send(markedData);
+    } catch (error: unknown) {
+      console.error("Markdown parsing error:", error);
+      res.status(500).json({ error: "Failed to parse markdown" });
+    }
+  })
+);
+
+// Health check endpoint
+app.get("/", (req: Request, res: Response) => {
+  res.status(200).json({ status: "Server is healthy" });
 });
