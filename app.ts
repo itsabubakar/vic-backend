@@ -25,6 +25,12 @@ app.use(
     secret: process.env.SESSIONSECRET!,
     resave: false,
     saveUninitialized: true,
+    cookie: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      // maxAge, etc, as needed
+    },
   })
 );
 const PORT = process.env.PORT || 3000;
@@ -37,7 +43,7 @@ app.listen(PORT, () => {
 
 app.post("/errorCheck", async (req: Request, res: Response) => {
   if (typeof req.body !== "object" || typeof req.body.text !== "string") {
-    res.status(401).send("text field is required and must be a string");
+    res.status(400).send("text field is required and must be a string");
     return;
   }
   const text = req.body;
@@ -54,7 +60,6 @@ app.post("/errorCheck", async (req: Request, res: Response) => {
         },
       }
     );
-    console.log("response: ", response.data);
     res.json({ errors: response.data.matches, text: text.text });
   } catch (error: any) {
     console.log("Something Went Wrong...\n", error);
@@ -64,7 +69,7 @@ app.post("/errorCheck", async (req: Request, res: Response) => {
 
 app.post("/text", (req: Request, res: Response) => {
   if (typeof req.body !== "object" || typeof req.body.text !== "string") {
-    res.status(401).send("text field is required and must be a string");
+    res.status(400).send("text field is required and must be a string");
     return;
   }
   if (!req.session.notes) {
@@ -83,7 +88,7 @@ app.get("/text", (req: Request, res: Response) => {
 
 app.post("/rendered", async (req: Request, res: Response) => {
   if (typeof req.body !== "object" || typeof req.body.text !== "string") {
-    res.status(401).send("text field is required and must be a string");
+    res.status(400).send("text field is required and must be a string");
     return;
   }
   const data = req.body;
