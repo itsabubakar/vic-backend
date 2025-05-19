@@ -38,6 +38,7 @@ app.listen(PORT, () => {
 app.post("/errorCheck", async (req: Request, res: Response) => {
   if (typeof req.body !== "object" || typeof req.body.text !== "string") {
     res.status(401).send("text field is required and must be a string");
+    return;
   }
   const text = req.body;
   try {
@@ -64,6 +65,7 @@ app.post("/errorCheck", async (req: Request, res: Response) => {
 app.post("/text", (req: Request, res: Response) => {
   if (typeof req.body !== "object" || typeof req.body.text !== "string") {
     res.status(401).send("text field is required and must be a string");
+    return;
   }
   if (!req.session.notes) {
     req.session.notes = [];
@@ -82,6 +84,7 @@ app.get("/text", (req: Request, res: Response) => {
 app.post("/rendered", async (req: Request, res: Response) => {
   if (typeof req.body !== "object" || typeof req.body.text !== "string") {
     res.status(401).send("text field is required and must be a string");
+    return;
   }
   const data = req.body;
   const markedData = marked.parse(data.text);
